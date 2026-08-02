@@ -33,9 +33,11 @@ namespace WifiProfileManager
         private Button btnDisableAuto;
         private Button btnUp;
         private Button btnDown;
+        private Button btnReport;
         private Button btnExit;
 
         private string interfaceName = "Wi-Fi";
+        private const string WlanReportPath = @"C:\ProgramData\Microsoft\Windows\WlanReport\wlan-report-latest.html";
 
         public MainForm()
         {
@@ -83,10 +85,13 @@ namespace WifiProfileManager
             btnDown = new Button { Text = "Move Down", Left = 130, Top = row2Y, Width = 110 };
             btnDown.Click += (s, e) => MovePriority(1);
 
+            btnReport = new Button { Text = "Generate WLAN Report", Left = 260, Top = row2Y, Width = 200 };
+            btnReport.Click += (s, e) => GenerateWlanReport();
+
             btnExit = new Button { Text = "Exit", Left = 480, Top = row2Y, Width = 110 };
             btnExit.Click += (s, e) => Close();
 
-            foreach (var b in new[] { btnRefresh, btnEnableAuto, btnDisableAuto, btnDelete, btnUp, btnDown, btnExit })
+            foreach (var b in new[] { btnRefresh, btnEnableAuto, btnDisableAuto, btnDelete, btnUp, btnDown, btnReport, btnExit })
             {
                 b.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
                 Controls.Add(b);
@@ -307,6 +312,44 @@ namespace WifiProfileManager
             }
 
             LoadProfiles();
+        }
+
+        private void GenerateWlanReport()
+        {
+            btnReport.Enabled = false;
+            btnReport.Text = "Generating...";
+            Cursor = Cursors.WaitCursor;
+            try
+            {
+                string output = RunNetsh("wlan show wlanreport");
+
+                if (!System.IO.File.Exists(WlanReportPath))
+                {
+                    MessageBox.Show(
+                        "Report command ran but the expected file was not found:\n\n" + WlanReportPath +
+                        "\n\nnetsh output:\n" + output +
+                        "\n\nThis command usually requires Administrator rights.",
+                        "WiFi Profile Manager", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = WlanReportPath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to generate or open report (try running as Administrator):\n\n" + ex.Message,
+                    "WiFi Profile Manager", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                btnReport.Text = "Generate WLAN Report";
+                btnReport.Enabled = true;
+            }
         }
 
         private void MovePriority(int direction)
